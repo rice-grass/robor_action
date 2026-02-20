@@ -1048,6 +1048,81 @@ chat.input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
 
+// ============================================================================
+// STT (Web Speech API) — 브라우저 내장 음성 인식
+// ============================================================================
+(function initSTT() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = $('chatMic');
+
+  if (!SpeechRecognition) {
+    // 지원하지 않는 브라우저 → 버튼 숨김
+    if (micBtn) micBtn.hidden = true;
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'ko-KR';
+  recognition.interimResults = true;   // 실시간 중간 결과 표시
+  recognition.maxAlternatives = 1;
+  recognition.continuous = false;      // 발화 1회 후 자동 종료
+
+  let isListening = false;
+  let baseText = '';   // 음성 시작 전 입력창에 있던 텍스트 보존
+
+  function startSTT() {
+    baseText = chat.input.value;
+    try {
+      recognition.start();
+    } catch (e) {
+      // 이미 실행 중이면 무시
+    }
+    isListening = true;
+    micBtn.classList.add('listening');
+    micBtn.textContent = '●';
+    micBtn.title = '음성 입력 중... (클릭해서 중지)';
+  }
+
+  function stopSTT() {
+    try { recognition.stop(); } catch (_) {}
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.textContent = '음성';
+    micBtn.title = '음성 입력 (클릭해서 시작)';
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (isListening) stopSTT();
+    else startSTT();
+  });
+
+  // 인식 결과 — 실시간으로 입력창에 반영
+  recognition.addEventListener('result', (e) => {
+    let interim = '';
+    let final = '';
+    for (const result of e.results) {
+      if (result.isFinal) final += result[0].transcript;
+      else interim += result[0].transcript;
+    }
+    chat.input.value = baseText + final + interim;
+  });
+
+  // 발화 종료 — 텍스트가 있으면 자동 전송
+  recognition.addEventListener('end', () => {
+    stopSTT();
+    if (chat.input.value.trim()) sendMessage();
+  });
+
+  recognition.addEventListener('error', (e) => {
+    stopSTT();
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast('마이크 권한이 없습니다. 브라우저 주소창의 허용 버튼을 확인하세요.', 4500);
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      toast(`음성 인식 오류: ${e.error}`, 3000);
+    }
+  });
+})();
+
 // init
 loadChat();
 renderChat();
