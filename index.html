@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Robot 3D Dashboard</title>
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Robot Dashboard</div>
+          <div class="panel__subtitle">그룹(객체) 단위로 파트를 묶어서 제스처를 제어합니다</div>
+        </div>
+        <button id="btnResetAll" class="btn btn--ghost" title="포즈/카메라/조명 리셋">리셋</button>
+      </div>
+
+      <section class="section">
+        <div class="section__title">GESTURES</div>
+        <div class="gesture-grid">
+          <button class="btn btn--card" data-gesture="neutral">기본</button>
+          <button class="btn btn--card" data-gesture="wave">인사(오른팔)</button>
+          <button class="btn btn--card" data-gesture="point">가리키기(오른팔)</button>
+          <button class="btn btn--card" data-gesture="think">생각중(머리)</button>
+        </div>
+        <div class="hint">
+          • 오른팔: <b>tripo_part_1 + tripo_part_11</b><br/>
+          • 왼팔: <b>tripo_part_13 + tripo_part_16</b><br/>
+          • 머리: <b>tripo_part_7 + tripo_part_5</b><br/>
+          • 요청대로 <b>Z축 회전만</b> 적용합니다.
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__title">LIGHTING</div>
+
+        <div class="row">
+          <div class="row__label">Exposure</div>
+          <input id="exposure" type="range" min="0.1" max="3.0" step="0.01" value="1.35">
+          <div id="exposureVal" class="row__val">1.35</div>
+        </div>
+
+        <div class="row">
+          <div class="row__label">Key Light</div>
+          <input id="keyLight" type="range" min="0" max="12" step="0.1" value="5.5">
+          <div id="keyLightVal" class="row__val">5.5</div>
+        </div>
+
+        <div class="row">
+          <div class="row__label">Ambient</div>
+          <input id="ambient" type="range" min="0" max="6" step="0.05" value="1.35">
+          <div id="ambientVal" class="row__val">1.35</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__title">BODY CONTROL</div>
+
+        <div class="toggle">
+          <input id="showParts" type="checkbox">
+          <label for="showParts">Show Model Parts (외곽선 표시)</label>
+        </div>
+
+        <div class="selected">
+          <div class="selected__title">선택된 파트</div>
+          <div id="selectedPart" class="selected__name">없음 (모델을 클릭해 선택)</div>
+        </div>
+
+        <div class="limb">
+          <div class="limb__title">Left Arm (Z only)</div>
+          <div class="limb__meta">tripo_part_13 + tripo_part_16</div>
+          <div class="row">
+            <div class="row__label">Angle</div>
+            <input id="leftArm" type="range" min="-90" max="90" step="1" value="0">
+            <div id="leftArmVal" class="row__val">0°</div>
+          </div>
+        </div>
+
+        <div class="limb">
+          <div class="limb__title">Right Arm (Z only)</div>
+          <div class="limb__meta">tripo_part_1 + tripo_part_11</div>
+          <div class="row">
+            <div class="row__label">Angle</div>
+            <input id="rightArm" type="range" min="-90" max="90" step="1" value="0">
+            <div id="rightArmVal" class="row__val">0°</div>
+          </div>
+        </div>
+
+        <div class="limb">
+          <div class="limb__title">Head Rotate (Z only)</div>
+          <div class="limb__meta">tripo_part_7 + tripo_part_5</div>
+          <div class="row">
+            <div class="row__label">Angle</div>
+            <input id="head" type="range" min="-60" max="60" step="1" value="0">
+            <div id="headVal" class="row__val">0°</div>
+          </div>
+        </div>
+
+        <div class="section__actions">
+          <button id="btnResetPose" class="btn">Reset Pose</button>
+          <button id="btnAutoRotate" class="btn btn--ghost" aria-pressed="false">Auto Rotate: OFF</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__title">CAMERA</div>
+        <div class="cam-grid">
+          <button id="btnResetView" class="btn">Reset View</button>
+          <button id="btnFront" class="btn btn--ghost">Front</button>
+          <button id="btnSide" class="btn btn--ghost">Side</button>
+          <button id="btnTop" class="btn btn--ghost">Top</button>
+        </div>
+      </section>
+
+      <section class="section section--small">
+        <div class="section__title">CHATBOT</div>
+        <div class="hint">
+          하단 챗봇 바에서 자연어로 로봇을 제어하세요.<br/>
+          예: <b>"오른팔 흔들어봐"</b>, <b>"인사해봐"</b>, <b>"생각해봐"</b><br/>
+          (Ollama: <b>localhost:11434</b> · .env에서 모델 변경 가능)
+        </div>
+      </section>
+    </aside>
+
+    <main class="stage">
+      <canvas id="c"></canvas>
+
+      <!-- 6시 방향: 가로로 긴 챗봇 바 -->
+      <div class="chatDock" id="chatDock">
+        <div class="chatPanel" id="chatPanel" hidden>
+          <div class="chatHeader">
+            <div class="chatTitle">로봇 컨트롤러</div>
+            <div class="chatMeta" id="chatMeta"></div>
+            <button class="btn btn--ghost btn--sm" id="chatClear" title="대화 초기화">초기화</button>
+            <button class="btn btn--ghost btn--sm" id="chatCollapse" title="접기">접기</button>
+          </div>
+          <div class="chatMessages" id="chatMessages"></div>
+        </div>
+
+        <div class="chatBar">
+          <button class="btn btn--ghost btn--sm" id="chatExpand" title="챗봇 열기">챗봇</button>
+          <input class="chatInput" id="chatInput" placeholder="여기에 메시지를 입력하고 Enter..." />
+          <button class="btn btn--sm" id="chatSend">전송</button>
+        </div>
+      </div>
+
+      <div id="toast" class="toast" hidden></div>
+    </main>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
