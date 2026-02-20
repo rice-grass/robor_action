@@ -1026,6 +1026,9 @@ async function sendMessage() {
     } else {
       applyActions(j.actions);
     }
+
+    // 복명복창 — 로봇이 응답 텍스트를 음성으로 읽음
+    if (answer) speakResponse(answer);
   } catch (e) {
     clearTimeout(timeoutId);
     console.error(e);
@@ -1122,6 +1125,45 @@ chat.input.addEventListener('keydown', (e) => {
     }
   });
 })();
+
+// ============================================================================
+// TTS (Web Speech API) — 브라우저 내장 음성 합성 (로봇 남성 목소리)
+// ============================================================================
+let _ttsVoices = [];
+if ('speechSynthesis' in window) {
+  const _loadVoices = () => {
+    _ttsVoices = speechSynthesis.getVoices();
+    // 개발 참고: 사용 가능한 한국어 목소리 목록 출력
+    const koList = _ttsVoices.filter(v => v.lang.startsWith('ko'));
+    if (koList.length) console.log('[TTS] 한국어 목소리:', koList.map(v => v.name));
+  };
+  _loadVoices();
+  speechSynthesis.addEventListener('voiceschanged', _loadVoices);
+}
+
+function _getRobotVoice() {
+  // Windows Chrome 남성 한국어 목소리 이름 목록 (알려진 것들)
+  const MALE_KO = ['injoon', 'heechul', 'sejun', 'hyunsu', 'male', '남성'];
+  const koMale = _ttsVoices.find(v =>
+    v.lang.startsWith('ko') && MALE_KO.some(k => v.name.toLowerCase().includes(k))
+  );
+  if (koMale) return koMale;
+  // 매칭 없으면 한국어 아무 목소리 (pitch로 남성/로봇 효과)
+  return _ttsVoices.find(v => v.lang.startsWith('ko')) ?? null;
+}
+
+function speakResponse(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  const voice = _getRobotVoice();
+  if (voice) utter.voice = voice;
+  utter.lang   = 'ko-KR';
+  utter.pitch  = 0.1;   // 매우 낮은 피치 → 로봇/남성
+  utter.rate   = 0.85;  // 느리게
+  utter.volume = 1.0;
+  speechSynthesis.speak(utter);
+}
 
 // init
 loadChat();
